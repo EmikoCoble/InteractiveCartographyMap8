@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Final Project Gauge Chart</title>
+
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"
+        integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+        crossorigin=""/>
+
+        <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
+        integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
+        crossorigin=""></script>
+
+        <!-- Load c3.css -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.8/c3.css" rel="stylesheet">
+
+        <!-- Load d3.js and c3.js -->
+        <script src="https://d3js.org/d3.v5.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.8/c3.min.js"></script>
+
+        <script type="text/javascript" src="data2.js"></script>
+
+        <style type="text/css">
+          html, body { margin: 0; padding: 0; height: 65%; }
+          #map { min-height: 65%; }
+
+            /* Style of the Legend: adjust the values below to change the appearance of the legend pane*/
+            .legend {
+                padding: 6px 8px;
+                line-height: 18px;
+                background: rgba(255,255,255,0.9);
+                box-shadow: 0 0 15px rgba(0,0,0,0.2);
+                border-radius: 5px;
+            }
+
+            /* Adjust the values below to change the appearance of the legend color boxes */
+            .legend i {
+                width: 18px;
+                height: 18px;
+                float: left;
+                margin-right: 8px;
+                opacity: 0.7;
+            }
+        </style>
+
+
+
+    </head>
+
+    <body>
+        <div id="map" style="height: 500px"></div>
+        <div id="chart" style="height: 200px"></div>
+
+        <script type="text/javascript">
+
+            var map = L.map('map', {
+              center: [20.5433428,-157.49686],
+              zoom: 8
+            });
+
+            L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+                attribution: 'Map data © OpenStreetMap contributors, CC-BY-SA, Imagery © Mapbox',
+                maxZoom: 11,
+                minZoom: 2,
+                id: 'mapbox.light',
+                accessToken: 'pk.eyJ1IjoiZS1jb2JsZSIsImEiOiJjamxmcnViY3EwenU3M3dveWljN3B5bnM4In0.aImb9yimk0Qc-0OTeqlzKg'
+            }).addTo(map);
+
+            function getColor(value) {
+                return  value > 100 ? '#7a0177':
+                        value > 80.5 ? '#c51b8a':
+                        value > 60.5 ? '#f768a1':
+                        value > 40.5 ? '#fa9fb5':
+                        value > 20.5 ? '#fcc5c0':
+                                        '#feebe2';
+            }
+
+            function style(feature){
+                return {
+                    fillColor: getColor(feature.properties.percstorage),   // pop_den is the field name for the population density data
+                    weight: 2,
+                    opacity: 1,
+                    color: 'gray',
+                    fillOpacity: 0.9
+                };
+            }
+
+
+            function makeChart(props) {
+            // props is just a variable, which will be replaced with the layer's properties
+            // when using the function
+
+            c3.generate({
+                bindto: '#chart',
+                size: {  // size (height and width) of the chart, by pixels
+                    height: 200,
+                    width: 250
+                },
+                title: {
+              		text: 'Values of Hawaii Dams'
+            		},
+                data: {
+                    columns: [
+                        ['Dam Percentage of Area Used', props.percmax],
+                        ['Dam Percentage of Storage', props.percstorage],
+                        ['Dam Percentage of Drainage', props.percheight]
+                    ],
+                    type: 'gauge',
+                    onclick: function (d, i) { console.log("onclick", d, i); },
+                    onmouseover: function (d, i) { console.log("onmouseover", d, i); },
+                    onmouseout: function (d, i) { console.log("onmouseout", d, i); }
+                },
+                gauge: {
+            //        label: {
+            //            format: function(value, ratio) {
+            //                return value;
+            //            },
+            //            show: false // to turn off the min/max labels.
+            //        },
+            //    min: 0, // 0 is default, //can handle negative min e.g. vacuum / voltage / current flow / rate of change
+            //    max: 100, // 100 is default
+            //    units: ' %',
+            //    width: 39 // for adjusting arc thickness
+                },
+                color: {
+                    pattern: ['#FF0000', '#F97600', '#F6C600', '#60B044'], // the three color levels for the percentage values.
+                    threshold: {
+            //            unit: 'value', // percentage is default
+            //            max: 200, // 100 is default
+                        values: [25, 50, 75, 100]
+                    }
+                }
+            });
+          }
+
+
+            function highlightFeature(e) {
+                var layer = e.target;
+
+                // You can adjust the values below to change the highlighting styles of features on mouseover
+                layer.setStyle({
+                    weight: 5,
+                    color: '#666',
+                    dashArray: '6', // defines the stroke dash pattern; check out the link for more: https://goo.gl/AWl5sC
+                    fillOpacity: 0.7
+                });
+
+                // Fix display layer problems with IE and Opera (no need to change anything)
+                if (!L.Browser.ie && !L.Browser.opera) {
+                    layer.bringToFront();
+                }
+
+            makeChart(layer.feature.properties);
+        }
+
+            var geojson;
+
+            function resetHighlight(e) {
+                geojson.resetStyle(e.target);
+
+            }
+
+            // Combine the mouseover and mouseout actions (defined above)
+            function onEachFeature(feature, layer) {
+                layer.on({
+                    mouseover: highlightFeature,
+                    mouseout: resetHighlight,
+                });
+            }
+
+            var tooltip = document.getElementById("chart");
+
+            geojson = L.geoJson(data2, {
+                style:style,
+                onEachFeature: onEachFeature
+              }).bindTooltip(tooltip).addTo(map);
+
+            var legend = L.control({position: 'bottomright'}); // Try the other three corners if you like.
+
+            legend.onAdd = function (map) {
+
+                var div = L.DomUtil.create('div', 'legend'),
+                    grades = [0, 20.5, 40.5, 60.5, 80.5, 110]; // The break values to define the intervals of population, note we begin from 0 here
+
+                div.innerHTML = '<b>Dam Attributes<br> For Hawaii<br></b>'; // The legend title (HTML-based), in this case it's Population Density 2011
+
+                // Loop through our the classes and generate a label with a color box for each interval.
+                // If you are creating a choropleth map, you DO NOT need to change lines below.
+                for (var i = 0; i < grades.length; i++) {
+                    div.innerHTML +=
+                    '<i style="background:' + getColor(grades[i] + 1) + '"></i>' +
+                    grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + '<br>' : '+');
+                }
+
+                return div;
+            };
+
+            legend.addTo(map);
+
+        </script>
+
+        <iframe width="1250" height="800" src="https://embed.windy.com/embed2.html?lat=19.829&lon=-157.335&zoom=7&level=surface&overlay=wind&menu=&message=true&marker=&calendar=&pressure=true&type=map&location=coordinates&detail=&detailLat=20.345&detailLon=-158.511&metricWind=kt&metricTemp=%C2%B0F&radarRange=-1" frameborder="0"></iframe>
+
+
+   </body>
+</html>
